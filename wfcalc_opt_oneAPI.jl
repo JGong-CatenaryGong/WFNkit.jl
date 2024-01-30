@@ -671,7 +671,7 @@ function main()
     for res in [1, 2, 4, 8, 10]
 
         dens = fullSpaceDens(geom, funcArray, primMatrix, res)
-        np.save("tpe_dens_res$res.npy", dens, "\t")
+        np.save("hr_dens_res$res.npy", dens, "\t")
 
     end
 
