@@ -318,7 +318,7 @@ function genPoints(geom::Main.WaveFuncReaders.CoordsTools.Geometry, dLevel::Floa
 
     spaceMat = zeros(Float64, (xNo, yNo, zNo, 3))
 
-    Threads.@thread for I in CartesianIndices(spaceMat[:,:,:,1])
+    Threads.@threads for I in CartesianIndices(spaceMat[:,:,:,1])
         spaceMat[I,1] = xRange[I[1]]
         spaceMat[I,2] = yRange[I[2]]
         spaceMat[I,3] = zRange[I[3]]
@@ -481,7 +481,7 @@ function fullSpaceWFN(
     println("\nCalculating values of wavefunction in $(xNo * yNo * zNo) for the molecular orbital $MO (HOMO-$(length(MOocc) - MO))")
 
     progress = Progress(xNo * yNo * zNo)
-    Threads.@thread for I in CartesianIndices(wfn)
+    Threads.@threads for I in CartesianIndices(wfn)
         wfn[I] = sum(calcMOwfn(geom, funcArray, MOocc, primMatrix, spaceMat[I,:]))
         next!(progress)
     end
@@ -512,7 +512,7 @@ function fullSpaceDens(
     println("Calculating values of electronic density in $(xNo * yNo * zNo) positions")
 
     progress = Progress(xNo * yNo * zNo)
-    Threads.@thread for I in CartesianIndices(wfn)
+    Threads.@threads for I in CartesianIndices(wfn)
         wfn[I] = sum(calcMOwfn(geom, funcArray, primMatrix, spaceMat[I,:]).^2)
         next!(progress)
     end
@@ -545,7 +545,7 @@ function planeWFN(
     wfn = zeros(Float64, (nDotsX, nDotsY))
     progress = Progress(nDotsX)
     
-    Threads.@thread for I in CartesianIndices(plane)
+    Threads.@threads for I in CartesianIndices(plane)
         wfn[I] = sum(calcMOwfn(geom, funcArray, primMatrix, plane[I]))
     end
 
@@ -577,7 +577,7 @@ function spaceGrad(
     println("Calculating values of the gradients electronic density in $(xNo * yNo * zNo) positions")
 
     progress = Progress(xNo * yNo * zNo)
-    Threads.@thread for I in CartesianIndices(gradX)
+    Threads.@threads for I in CartesianIndices(gradX)
         gradX[I] = sum(calcGrad(geom, funcArray, primMatrix, spaceMat[I,:])[1])
         gradY[I] = sum(calcGrad(geom, funcArray, primMatrix, spaceMat[I,:])[2])
         gradZ[I] = sum(calcGrad(geom, funcArray, primMatrix, spaceMat[I,:])[3])
@@ -611,7 +611,7 @@ function spaceGradPy(
     println("Calculating values of electronic density in $(xNo * yNo * zNo) positions")
 
     progress = Progress(xNo * yNo * zNo)
-    Threads.@thread for I in CartesianIndices(wfn)
+    Threads.@threads for I in CartesianIndices(wfn)
         wfn[I] = sum(calcMOwfn(geom, funcArray, primMatrix, spaceMat[I,:]).^2)
         next!(progress)
     end
