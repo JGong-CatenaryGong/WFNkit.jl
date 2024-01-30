@@ -24,9 +24,15 @@ mutable struct Basis
 end
 
 function parseD(str::SubString{String}) # read scientific notation of float number with D instead of E
-    main, exp = split(str, 'D')
-    new = main * 'e' * exp
-    return parse(Float64, new)
+    if 'E' in str
+        main, exp = split(str, 'E')
+        new = main * 'e' * exp
+        return parse(Float64, new)
+    else
+        main, exp = split(str, 'D')
+        new = main * 'e' * exp
+        return parse(Float64, new)
+    end
 end
 
 function readWfn(filename::String)
@@ -86,7 +92,7 @@ function readWfn(filename::String)
                 append!(typeLines, [line])
             elseif occursin("EXPONENTS", line)
                 append!(expLines, [line])
-            elseif occursin("MO", line) || occursin(r"[0-9][.][0-9]+D[+|-][0-9]{2}", line)
+            elseif occursin("MO", line) || occursin(r"[-]?[0-9][.][0-9]+[E|D][+|-][0-9]{2}", line)
                 if occursin("MOSPIN", line)
 
                 else
@@ -126,7 +132,7 @@ function readWfn(filename::String)
 
         exps = []
         for expLine in expLines
-            for matches in eachmatch(r"[0-9][.][0-9]+D[+|-][0-9]{2}", expLine)
+            for matches in eachmatch(r"[0-9][.][0-9]+[D|E][+|-][0-9]{2}", expLine)
                 append!(exps, parseD(matches.match))
             end
         end
@@ -152,11 +158,12 @@ function readWfn(filename::String)
                 MOenergy[lineNo] = parse(Float64, split(line)[end])
                 lineNo = lineNo + 1
             else
-                for matches in eachmatch(r"[0-9][.][0-9]+D[+|-][0-9]{2}", line)
+                for matches in eachmatch(r"[-]?[0-9][.][0-9]+[E|D][+|-][0-9]{2}", line)
                     append!(MOprim, parseD(matches.match))
                 end
             end
             next!(progress)
+            
         end
         primMatrix = convert(Matrix{Float64}, transpose(reshape(MOprim, (nGfunc, nOMO))))
         finish!(progress)
@@ -164,9 +171,13 @@ function readWfn(filename::String)
 
         #println(MOenergy)
         #println(enerLine)
+        virEner = []
+        for matches in eachmatch(r"[-]?[0-9][.][0-9]+", enerLine[1])
+            append!(virEner, parse(Float64, matches.match))
+        end
 
-        virial = parse(Float64, split(enerLine[1])[end])
-        totalEnergy = parse(Float64, split(enerLine[1])[5])
+        virial = virEner[1]
+        totalEnergy = virEner[2]
 
         return geom, funcArray, MOocc, MOenergy, primMatrix, virial, totalEnergy
     end
