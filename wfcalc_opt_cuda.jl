@@ -13,7 +13,7 @@ using ThreadPools
 using LinearRegression
 using DelimitedFiles
 using .WaveFuncReaders, .CoordsTools, .Numjy
-using oneAPI
+using CUDA
 using LinearAlgebra
 using PyCall
 
@@ -84,11 +84,11 @@ function calcMOwfn(
     end
     #println(funcArray)
 
-    if oneAPI.functional() #oneAPI check
-        wfnMat = oneAPI.zeros(Float32, (nMOs, nPrims))
-        GTFvalMOs = oneAPI.zeros(Float32, nMOs)
+    if CUDA.functional() #CUDA check
+        wfnMat = CUDA.zeros(Float32, (nMOs, nPrims))
+        GTFvalMOs = CUDA.zeros(Float32, nMOs)
 
-        GTFvals = oneAPI.zeros(Float32, nPrims)
+        GTFvals = CUDA.zeros(Float32, nPrims)
 
 
 
@@ -207,14 +207,14 @@ function calcGrad(
         return scaleVec
     end
 
-    if oneAPI.functional()
-        #gradMat = oneAPI.zeros(Float64, (nMOs, nPrims))
-        gradMOs = oneAPI.zeros(Float32, (nMOs))
+    if CUDA.functional()
+        #gradMat = CUDA.zeros(Float64, (nMOs, nPrims))
+        gradMOs = CUDA.zeros(Float32, (nMOs))
 
-        gradVals = oneAPI.zeros(Float32, nPrims)
-        gradX = oneAPI.zeros(Float32, nPrims)
-        gradY = oneAPI.zeros(Float32, nPrims)
-        gradZ = oneAPI.zeros(Float32, nPrims)
+        gradVals = CUDA.zeros(Float32, nPrims)
+        gradX = CUDA.zeros(Float32, nPrims)
+        gradY = CUDA.zeros(Float32, nPrims)
+        gradZ = CUDA.zeros(Float32, nPrims)
 
         gradVals = getGrad.(funcArray)
         gradX = [x[1] for x in gradVals]
@@ -505,7 +505,7 @@ function fullSpaceDens(
 
     #noMOs = length(MOocc)
 
-    if oneAPI.functional()
+    if CUDA.functional()
         wfn = zeros(Float32, (xNo, yNo, zNo))
     else
         wfn = zeros(Float64, (xNo, yNo, zNo))
@@ -564,7 +564,7 @@ function spaceGrad(
 
     #noMOs = length(MOocc)
 
-    if oneAPI.functional()
+    if CUDA.functional()
         gradX = zeros(Float32, (xNo, yNo, zNo))
         gradY = zeros(Float32, (xNo, yNo, zNo))
         gradZ = zeros(Float32, (xNo, yNo, zNo))
@@ -603,7 +603,7 @@ function spaceGradPy(
 
     #noMOs = length(MOocc)
 
-    if oneAPI.functional()
+    if CUDA.functional()
         wfn = zeros(Float32, (xNo, yNo, zNo))
     else
         wfn = zeros(Float64, (xNo, yNo, zNo))
@@ -662,7 +662,7 @@ end
 
 function main()
     println("Using $(Threads.nthreads()) cores...")
-    println("oneAPI status: $(oneAPI.functional())")
+    println("CUDA status: $(CUDA.functional())")
 
     np = pyimport("numpy")
 
