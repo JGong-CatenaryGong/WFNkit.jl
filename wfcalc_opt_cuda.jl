@@ -1,9 +1,5 @@
 
-if Threads.nthreads() == 1
-    include("./wfreader.jl")
-else
-    include("./wfreader_thread.jl")
-end
+include("./wfreader_thread.jl")
 include("./coords.jl")
 include("./numjy.jl")
 
