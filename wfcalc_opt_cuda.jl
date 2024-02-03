@@ -662,12 +662,12 @@ function main()
     np = pyimport("numpy")
 
 
-    geom, funcArray, MOocc, MOenergy, primMatrix, virial, totalEnergy = readWfn("tpe.wfn")
+    geom, funcArray, MOocc, MOenergy, primMatrix, virial, totalEnergy = readWfn("./datas/PhenolDimer.wfn")
 
     for res in [1, 2, 4, 8, 10]
 
         dens = fullSpaceDens(geom, funcArray, primMatrix, res)
-        np.save("tpe_dens_res$res.npy", dens, "\t")
+        np.save("pd_dens_res$res.npy", dens, "\t")
 
     end
 
