@@ -706,15 +706,13 @@ function fullSpacePotDens(
     end
     println("Calculating values of electronic density in $(xNo * yNo * zNo) positions")
 
-    @showprogress Threads.@threads for I in CartesianIndices(wfn)
+    Threads.@threads for I in CartesianIndices(wfn)
         wfn[I] = sum(calcMOwfn(geom, funcArray, primMatrix, spaceMat[I,:]).^2)
-        next!(progress)
     end
 
     println("Calculating values of nuclei potentials in $(xNo * yNo * zNo) positions")
-    @showprogress Threads.@threads for I in CartesianIndices(wfn)
+    Threads.@threads for I in CartesianIndices(wfn)
         pot[I] = sum(genNucleiPotential(geom, spaceMat[I,:]))
-        next!(progress)
     end
 
     #=
