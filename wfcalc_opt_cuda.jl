@@ -1,19 +1,21 @@
 
 include("./wfreader_thread.jl")
-include("./coords.jl")
+#include("./coords.jl")
 include("./numjy.jl")
+
+push!(LOAD_PATH, ".")
 
 using Base.Threads
 using Profile, ProgressMeter
 using LinearRegression
 using DelimitedFiles
-using .WaveFuncReaders, .CoordsTools, .Numjy
+using .WaveFuncReaders, .Numjy
 using CUDA
 using LinearAlgebra
-using PyCall
+using JLD2
 
 function calcMOwfn(
-    geom::Main.WaveFuncReaders.CoordsTools.Geometry, 
+    geom::Geometry, 
     funcArray::Vector{Basis}, 
     # MOocc::Vector{Float64}, 
     # MOenergy::Vector{Float64}, 
@@ -119,7 +121,7 @@ function calcMOwfn(
 end
 
 function calcGrad(
-    geom::Main.WaveFuncReaders.CoordsTools.Geometry, 
+    geom::Geometry, 
     funcArray::Vector{Basis}, 
     # MOocc::Vector{Float64}, 
     # MOenergy::Vector{Float64}, 
@@ -262,7 +264,7 @@ function calcGrad(
     return gradMOX, gradMOY, gradMOZ
 end
 
-function genPoints(geom::Main.WaveFuncReaders.CoordsTools.Geometry, dLevel::Float64 = 1.5, ratiometric::Bool = false, resLevel::Int64 = 5)
+function genPoints(geom::Geometry, dLevel::Float64 = 1.5, ratiometric::Bool = false, resLevel::Int64 = 5)
     # dLevel stands for the scale of the resulted box; 
     # If ratiometric is true, the strides of different axis are ratiometric;
     # ResLevel stands for the number of sampling points per nanometer.
@@ -335,7 +337,7 @@ function genPoints(geom::Main.WaveFuncReaders.CoordsTools.Geometry, dLevel::Floa
     return spaceMat
 end
 
-function genPlanePoints(geom::Main.WaveFuncReaders.CoordsTools.Geometry, planeType::String = "opt", dLevel::Float64 = 1.5, resLevel::Int64 = 10)
+function genPlanePoints(geom::Geometry, planeType::String = "opt", dLevel::Float64 = 1.5, resLevel::Int64 = 10)
     #=
     Generate a plane for wfn calculation.
     planeType:
@@ -462,7 +464,7 @@ function genPlanePoints(geom::Main.WaveFuncReaders.CoordsTools.Geometry, planeTy
 end
 
 function fullSpaceWFN(
-    geom::Main.WaveFuncReaders.CoordsTools.Geometry, 
+    geom::Geometry, 
     funcArray::Vector{Basis}, 
     primMatrix::Matrix{Float64}
     )
@@ -478,7 +480,7 @@ function fullSpaceWFN(
 
     progress = Progress(xNo * yNo * zNo)
     Threads.@threads for I in CartesianIndices(wfn)
-        wfn[I] = sum(calcMOwfn(geom, funcArray, MOocc, primMatrix, spaceMat[I,:]))
+        wfn[I] = sum(calcMOwfn(geom, funcArray, primMatrix, spaceMat[I,:]))
         next!(progress)
     end
 
@@ -487,7 +489,7 @@ function fullSpaceWFN(
 end
 
 function fullSpaceDens(
-    geom::Main.WaveFuncReaders.CoordsTools.Geometry, 
+    geom::Geometry, 
     funcArray::Vector{Basis}, 
     # MOocc::Vector{Float64},
     primMatrix::Matrix{Float64},
@@ -530,7 +532,7 @@ function fullSpaceDens(
 end
 
 function planeWFN(
-    geom::Main.WaveFuncReaders.CoordsTools.Geometry, 
+    geom::Geometry, 
     funcArray::Vector{Basis}, 
     primMatrix::Matrix{Float64}
     )
@@ -549,7 +551,7 @@ function planeWFN(
 end
 
 function spaceGrad(
-    geom::Main.WaveFuncReaders.CoordsTools.Geometry, 
+    geom::Geometry, 
     funcArray::Vector{Basis}, 
     primMatrix::Matrix{Float64}
 )
@@ -586,7 +588,7 @@ function spaceGrad(
 end
 
 function spaceGradPy(
-    geom::Main.WaveFuncReaders.CoordsTools.Geometry, 
+    geom::Geometry, 
     funcArray::Vector{Basis}, 
     # MOocc::Vector{Float64},
     primMatrix::Matrix{Float64}
@@ -655,22 +657,98 @@ function getRDG(grad::Array{Float32}, dens::Array{Float32})
     return val
 end
 
+function genNucleiPotential(geom::Geometry, coords::Vector{Float64})
+    geometry = geom.points
+    atNumbers = geom.atomNumbers
+
+    println(size(geometry))
+
+    dot = Point(coords)
+    distanceList = [distance(x, dot) for x in geometry]
+    
+    if CUDA.functional()
+        potentialList = CUDA.zeros(Float32, length(distanceList))
+        atNumbers = CuArray(atNumbers)
+        distanceList = CuArray(distanceList)
+
+        potentialList = atNumbers ./ distanceList
+    else
+        potentialList = zeros(Float32, length(distanceList))
+
+        potentialList = atNumbers ./ distanceList
+    end
+
+    potential = sum(potentialList)
+
+    return potential
+end
+
+function fullSpacePotDens(
+    geom::Geometry, 
+    funcArray::Vector{Basis}, 
+    # MOocc::Vector{Float64},
+    primMatrix::Matrix{Float64},
+    resLevel::Int64
+    )
+
+    spaceMat = genPoints(geom, 1.5, false, resLevel)
+    println(size(spaceMat))
+    xNo, yNo, zNo, dimensions = size(spaceMat)
+
+    #noMOs = length(MOocc)
+
+    if CUDA.functional()
+        wfn = zeros(Float32, (xNo, yNo, zNo))
+    else
+        wfn = zeros(Float64, (xNo, yNo, zNo))
+    end
+    println("Calculating values of electronic density in $(xNo * yNo * zNo) positions")
+
+    progress = Progress(xNo * yNo * zNo)
+    Threads.@threads for I in CartesianIndices(wfn)
+        wfn[I] = sum(calcMOwfn(geom, funcArray, primMatrix, spaceMat[I,:]).^2)
+        next!(progress)
+    end
+
+    println("Calculating values of nuclei potentials in $(xNo * yNo * zNo) positions")
+    Threads.@threads for I in CartesianIndices(wfn)
+        pot[I] = sum(genNucleiPotential(geom, spaceMat[I,:]))
+        next!(progress)
+    end
+
+    #=
+    progress = Progress(xNo)
+    for i in 1:xNo
+        for j in 1:yNo
+            for k in 1:zNo
+                wfn[i,j,k] = sum(calcMOwfn(geom, funcArray, MOocc, primMatrix, spaceMat[i,j,k,:]))
+            end
+        end
+        next!(progress)
+    end
+    =#
+
+    finish!(progress)
+    return wfn, pot
+end
+
 function main()
     println("Using $(Threads.nthreads()) cores...")
     println("CUDA status: $(CUDA.functional())")
 
-    np = pyimport("numpy")
+    for (root, dirs, files) in walkdir(".")
+        for file in files
+            if ".wfn" in file
+                geom, funcArray, MOocc, MOenergy, primMatrix, virial, totalEnergy = readWfn("./datas/$(file)")
+                for res in [1, 2, 4, 8, 10]
 
-
-    geom, funcArray, MOocc, MOenergy, primMatrix, virial, totalEnergy = readWfn("./datas/PhenolDimer.wfn")
-
-    for res in [1, 2, 4, 8, 10]
-
-        dens = fullSpaceDens(geom, funcArray, primMatrix, res)
-        np.save("pd_dens_res$res.npy", dens, "\t")
-
+                    dens, pots = fullSpacePotDens(geom, funcArray, primMatrix, res)
+                    save("array_$(file)_$(res).jld2", Dict("dens" => dens, "pot" => pots))
+            
+                end
+            end
+        end
     end
-
 end
 
 @time main()

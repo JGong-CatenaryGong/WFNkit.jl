@@ -9,7 +9,7 @@ using InteractiveUtils
 using Unitful
 using LinearAlgebra
 
-export Geometry, Point
+export Geometry, Point, distance, angle, torsion
 
 mutable struct Point
     coords::Vector{Float64}
