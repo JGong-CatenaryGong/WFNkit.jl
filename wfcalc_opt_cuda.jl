@@ -739,7 +739,7 @@ function main()
     for (root, dirs, files) in walkdir(".")
         for file in files
             if ".wfn" in file
-                geom, funcArray, MOocc, MOenergy, primMatrix, virial, totalEnergy = readWfn("./datas/$(file)")
+                geom, funcArray, MOocc, MOenergy, primMatrix, virial, totalEnergy = readWfn("./$(file)")
                 for res in [1, 2, 4, 8, 10]
 
                     dens, pots = fullSpacePotDens(geom, funcArray, primMatrix, res)
