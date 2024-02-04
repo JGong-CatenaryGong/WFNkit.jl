@@ -736,12 +736,13 @@ function main()
 
     for (root, dirs, files) in walkdir(".")
         for file in files
+            filename = split(file, '.')[1]
             if occursin(".wfn", file)
                 geom, funcArray, MOocc, MOenergy, primMatrix, virial, totalEnergy = readWfn("./$(file)")
                 for res in [1, 2, 4, 8, 10]
 
                     dens, pots = fullSpacePotDens(geom, funcArray, primMatrix, res)
-                    save("array_$(file)_$(res).jld2", Dict("dens" => dens, "pot" => pots))
+                    save("array_$(filename)_$(res).jld2", Dict("dens" => dens, "pot" => pots))
             
                 end
             end

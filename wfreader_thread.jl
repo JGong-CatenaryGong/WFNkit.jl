@@ -219,13 +219,15 @@ module WaveFuncReaders
 
         funcDict = Dict("GAUSSIAN" => 1, "SLATER" => 2)
 
+        println("Reading $(filename)...")
+
         open(filename, "r") do f
             lines = readlines(f)
 
             title = lines[1] # title line
 
             basicInfo = split(lines[2]) # basic info line
-            funcType = funcDict[basicInfo[1]]
+            #funcType = funcDict[basicInfo[1]]
             nOMO = parse(Int64, basicInfo[2])
             nGfunc = parse(Int64, basicInfo[5])
             nAtoms = parse(Int64, basicInfo[7])
