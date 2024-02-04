@@ -661,7 +661,7 @@ function genNucleiPotential(geom::Geometry, coords::Vector{Float64})
     geometry = geom.points
     atNumbers = geom.atomNumbers
 
-    println(size(geometry))
+    #println(size(geometry))
 
     dot = Point(coords)
     distanceList = [distance(x, dot) for x in geometry]
@@ -670,7 +670,7 @@ function genNucleiPotential(geom::Geometry, coords::Vector{Float64})
         potentialList = CUDA.zeros(Float32, length(distanceList))
         atNumbers = CuArray(atNumbers)
         distanceList = CuArray(distanceList)
-
+        
         potentialList = atNumbers ./ distanceList
     else
         potentialList = zeros(Float32, length(distanceList))
@@ -692,26 +692,27 @@ function fullSpacePotDens(
     )
 
     spaceMat = genPoints(geom, 1.5, false, resLevel)
-    println(size(spaceMat))
+    #println(size(spaceMat))
     xNo, yNo, zNo, dimensions = size(spaceMat)
 
     #noMOs = length(MOocc)
 
     if CUDA.functional()
         wfn = zeros(Float32, (xNo, yNo, zNo))
+        pot = zeros(Float32, (xNo, yNo, zNo))
     else
         wfn = zeros(Float64, (xNo, yNo, zNo))
+        pot = zeros(Float32, (xNo, yNo, zNo))
     end
     println("Calculating values of electronic density in $(xNo * yNo * zNo) positions")
 
-    progress = Progress(xNo * yNo * zNo)
-    Threads.@threads for I in CartesianIndices(wfn)
+    @showprogress Threads.@threads for I in CartesianIndices(wfn)
         wfn[I] = sum(calcMOwfn(geom, funcArray, primMatrix, spaceMat[I,:]).^2)
         next!(progress)
     end
 
     println("Calculating values of nuclei potentials in $(xNo * yNo * zNo) positions")
-    Threads.@threads for I in CartesianIndices(wfn)
+    @showprogress Threads.@threads for I in CartesianIndices(wfn)
         pot[I] = sum(genNucleiPotential(geom, spaceMat[I,:]))
         next!(progress)
     end
@@ -728,7 +729,6 @@ function fullSpacePotDens(
     end
     =#
 
-    finish!(progress)
     return wfn, pot
 end
 
@@ -738,7 +738,7 @@ function main()
 
     for (root, dirs, files) in walkdir(".")
         for file in files
-            if occursin(".wfn" in file)
+            if occursin(".wfn", file)
                 geom, funcArray, MOocc, MOenergy, primMatrix, virial, totalEnergy = readWfn("./$(file)")
                 for res in [1, 2, 4, 8, 10]
 
