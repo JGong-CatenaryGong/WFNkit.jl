@@ -668,8 +668,6 @@ function genNucleiPotential(geom::Geometry, coords::Vector{Float64})
     
     if CUDA.functional()
         potentialList = CUDA.zeros(Float32, length(distanceList))
-        atNumbers = CuArray(atNumbers)
-        distanceList = CuArray(distanceList)
         
         potentialList = atNumbers ./ distanceList
     else
@@ -706,14 +704,25 @@ function fullSpacePotDens(
     end
     println("Calculating values of electronic density in $(xNo * yNo * zNo) positions")
 
+    progress = Progress(xNo*yNo*zNo)
+
     Threads.@threads for I in CartesianIndices(wfn)
         wfn[I] = sum(calcMOwfn(geom, funcArray, primMatrix, spaceMat[I,:]).^2)
+        next!(progress)
     end
 
+    finish!
+
     println("Calculating values of nuclei potentials in $(xNo * yNo * zNo) positions")
+
+    progress = Progress(xNo*yNo*zNo)
+
     Threads.@threads for I in CartesianIndices(wfn)
         pot[I] = sum(genNucleiPotential(geom, spaceMat[I,:]))
+        next!(progress)
     end
+
+    finish!
 
     #=
     progress = Progress(xNo)
