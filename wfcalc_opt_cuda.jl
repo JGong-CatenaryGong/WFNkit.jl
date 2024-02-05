@@ -13,6 +13,8 @@ using .WaveFuncReaders, .Numjy
 using CUDA
 using LinearAlgebra
 using JLD2
+using HDF5
+using NPZ
 
 function calcMOwfn(
     geom::Geometry, 
@@ -759,4 +761,28 @@ function main()
     end
 end
 
-@time main()
+function main_hdf5()
+    println("Using $(Threads.nthreads()) cores...")
+    println("CUDA status: $(CUDA.functional())")
+
+    for (root, dirs, files) in walkdir(".")
+        for file in files
+            filename = split(file, '.')[1]
+            if occursin(".wfn", file)
+                geom, funcArray, MOocc, MOenergy, primMatrix, virial, totalEnergy = readWfn("./$(file)")
+                for res in [1, 2, 4, 8, 10]
+
+                    dens, pots = fullSpacePotDens(geom, funcArray, primMatrix, res)
+
+                    h5open("array_$(filename)_$(res).h5", "w") do file
+                        write(file, "dens", dens)
+                        write(file, "pots", pots)
+                    end
+            
+                end
+            end
+        end
+    end
+end
+
+@time main_hdf5()
